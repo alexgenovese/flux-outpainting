@@ -1,3 +1,3 @@
 # Outpainting
-Base Model: RealVisXL 2.0 
-Refiner: 
+Base Model: RealVisXL 5.0 Lightining
+Upscaler: Flux upscaler -- WIP
