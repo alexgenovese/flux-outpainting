@@ -11,4 +11,4 @@ CONTROL_LOCAL = ""
 UPSCALER_CACHE = os.path.join( base_path, 'weights-cache/upscaler_model')
 UPSCALER_MODEL = "jasperai/Flux.1-dev-Controlnet-Upscaler"
 
-hf_token = "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"
+hf_token = "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"
