@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw
 sys.path.append("./src")
 from src.utils import get_torch_device
 from src.download_weights import download_weights
-from src.constants import hf_token, VAE_CACHE, VAE_MODEL, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, UPSCALER_MODEL
+from src.constants import hf_token, VAE_CACHE, VAE_MODEL, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, UPSCALER_MODEL, UPSCALER_CACHE
 from diffusers.utils import load_image
 from diffusers import FluxControlNetModel
 from diffusers.pipelines import FluxControlNetPipeline
@@ -200,10 +200,10 @@ class Predictor(BasePredictor):
         if upscaler == True: 
             # Load controlnet pipeline 
             controlnet = FluxControlNetModel.from_pretrained(
-                UPSCALER_MODEL, torch_dtype=torch.float16
+                UPSCALER_MODEL, torch_dtype=torch.float16, cache_dir=UPSCALER_CACHE
             ).to(get_torch_device())
             upscaler_pipe = FluxControlNetPipeline.from_pretrained(
-                BASE_MODEL, controlnet=controlnet, torch_dtype=torch.float16
+                BASE_MODEL, controlnet=controlnet, torch_dtype=torch.float16, cache_dir=BASE_MODEL_CACHE
             )
             upscaler_pipe.to(get_torch_device())
 
