@@ -13,10 +13,10 @@ from PIL import Image, ImageDraw
 sys.path.append("./src")
 from src.utils import get_torch_device
 from src.download_weights import download_weights
-from src.constants import hf_token, VAE_CACHE, VAE_MODEL, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, UPSCALER_MODEL, UPSCALER_CACHE
+from src.constants import hf_token, VAE_CACHE, VAE_MODEL, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, base_path
+
 from diffusers.utils import load_image
-from diffusers import FluxControlNetModel
-from diffusers.pipelines import FluxControlNetPipeline
+
 
 class Predictor(BasePredictor):
     def setup(self):
@@ -193,34 +193,6 @@ class Predictor(BasePredictor):
         except Exception as error:
             print("----- Something went wrong")
             print(f"{error}")
-        
-        # temp
-        cnet_image.save('./image.png')
-
-        if upscaler == True: 
-            # Load controlnet pipeline 
-            controlnet = FluxControlNetModel.from_pretrained(
-                UPSCALER_MODEL, torch_dtype=torch.float16, cache_dir=UPSCALER_CACHE
-            ).to(get_torch_device())
-            upscaler_pipe = FluxControlNetPipeline.from_pretrained(
-                BASE_MODEL, controlnet=controlnet, torch_dtype=torch.float16, cache_dir=BASE_MODEL_CACHE
-            )
-            upscaler_pipe.to(get_torch_device())
-
-            # rescale with upscale factor
-            w, h = cnet_image.size
-            control_image = cnet_image.resize((w * upscale_factor, h * upscale_factor))
-            image = self.upscaler_pipe(
-                prompt="",
-                control_image=control_image,
-                controlnet_conditioning_scale=controlnet_conditioning_scale,
-                num_inference_steps=num_inference_steps,
-                guidance_scale=3.5,
-                height=control_image.size[1],
-                width=control_image.size[0],
-                generator=torch.Generator().manual_seed(1234),
-            ).images[0]
-            cnet_image = image
 
         # yield background, cnet_image
         cnet_image.save('./image.png')

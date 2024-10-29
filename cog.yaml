@@ -11,7 +11,14 @@ build:
     - "libxext6"
     - "wget"
 
-  python_requirements: requirements.txt
+  python_packages: 
+    - torch
+    - numpy==1.26.4
+    - transformers
+    - accelerate
+    - git+https://github.com/huggingface/diffusers.git
+    - opencv-python
+    - tqdm
     
 predict: "predict.py:Predictor"
 image: "r8.im/alexgenovese/flux-outpainting"
