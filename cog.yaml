@@ -4,7 +4,7 @@
 build:
   #gpu: true
   cuda: "11.8"
-  python_version: "3.10.6"
+  python_version: "3.12"
   system_packages:
     - "ffmpeg"
     - "libsm6"
@@ -12,13 +12,13 @@ build:
     - "wget"
 
   python_packages: 
-    - torch
-    - numpy==1.26.4
-    - transformers
-    - accelerate
-    - git+https://github.com/huggingface/diffusers.git
-    - opencv-python
-    - tqdm
+    - "torch==2.3.1"
+    - "numpy==1.26.4"
+    - "transformers"
+    - "accelerate"
+    - "git+https://github.com/huggingface/diffusers.git"
+    - "opencv-python"
+    - "tqdm"
     
 predict: "predict.py:Predictor"
-image: "r8.im/alexgenovese/flux-outpainting"
+#image: "alexgenovese/flux-outpainting"
