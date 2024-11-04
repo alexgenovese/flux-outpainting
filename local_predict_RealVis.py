@@ -1,17 +1,21 @@
 import torch, os, sys
 import numpy as np
 from cog import BasePredictor, Input, Path
-from diffusers.utils import load_image
-from controlnet_flux import FluxControlNetModel
-from transformer_flux import FluxTransformer2DModel
-from pipeline_flux_controlnet_inpaint import FluxControlNetInpaintingPipeline
+from diffusers import AutoencoderKL, TCDScheduler
+from diffusers.models.model_loading_utils import load_state_dict
+from huggingface_hub import hf_hub_download
+
+from controlnet_union import ControlNetModel_Union
+from pipeline_fill_sd_xl import StableDiffusionXLFillPipeline
 
 from PIL import Image, ImageDraw
 
 sys.path.append("./src")
 from src.utils import get_torch_device
 from src.download_weights import download_weights
-from src.constants import hf_token, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, base_path
+from src.constants import hf_token, VAE_CACHE, VAE_MODEL, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, base_path
+
+from diffusers.utils import load_image
 
 
 class Predictor(BasePredictor):
@@ -19,18 +23,40 @@ class Predictor(BasePredictor):
         # Download or cache
         download_weights()
 
-        self.controlnet = FluxControlNetModel.from_pretrained(CONTROLNET_MODEL, torch_dtype=torch.bfloat16, cache_dir=CONTROLNET_MODEL_CACHE)
-        self.transformer = FluxTransformer2DModel.from_pretrained(
-            BASE_MODEL, subfolder='transformer', torch_dtype=torch.bfloat16, cache_dir=BASE_MODEL_CACHE
+        config_file = hf_hub_download(
+            CONTROLNET_MODEL,
+            filename="config_promax.json",
+            cache_dir=CONTROLNET_MODEL_CACHE
         )
 
-        self.pipe = FluxControlNetInpaintingPipeline.from_pretrained(
-            BASE_MODEL,
-            transformer=self.transformer,
-            controlnet=self.controlnet,
-            torch_dtype=torch.bfloat16,
-            cache_dir=BASE_MODEL_CACHE
+        config = ControlNetModel_Union.load_config(config_file)
+        controlnet_model = ControlNetModel_Union.from_config(config)
+        model_file = hf_hub_download(
+            CONTROLNET_MODEL,
+            filename="diffusion_pytorch_model_promax.safetensors",
+            cache_dir=CONTROLNET_MODEL_CACHE
         )
+        state_dict = load_state_dict(model_file)
+        model, _, _, _, _ = ControlNetModel_Union._load_pretrained_model(
+            controlnet_model, state_dict, model_file, CONTROLNET_MODEL,
+        )
+        model.to(device=get_torch_device(), dtype=torch.float16)
+
+        vae = AutoencoderKL.from_pretrained(
+            VAE_MODEL, torch_dtype=torch.float16, 
+            cache_dir=VAE_CACHE
+        ).to(get_torch_device())
+
+        self.pipe = StableDiffusionXLFillPipeline.from_pretrained(
+            BASE_MODEL,
+            torch_dtype=torch.float16,
+            vae=vae,
+            controlnet=model,
+            variant="fp16",
+            cache_dir=BASE_MODEL_CACHE
+        ).to(get_torch_device())
+
+        self.pipe.scheduler = TCDScheduler.from_config(self.pipe.scheduler.config)
 
     
     def predict(self, 
@@ -43,7 +69,6 @@ class Predictor(BasePredictor):
             custom_resize_size="", 
             prompt_input="",
             alignment="Middle",
-            hyper_enabled=True,
             upscaler=True,
             upscale_factor=1.5,     # 1 to 4
             controlnet_conditioning_scale=0.6 # 0.1 to 1.5
@@ -142,13 +167,6 @@ class Predictor(BasePredictor):
 
         try: 
             final_prompt = f"{prompt_input} , high quality, 4k, 8k, high resolution, detailed"
-
-            if hyper_enabled:
-                self.pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-FLUX.1-dev-8steps-lora.safetensors"))
-                self.pipe.fuse_lora(lora_scale=0.125)
-                self.pipe.transformer.to(torch.bfloat16)
-                self.pipe.controlnet.to(torch.bfloat16)
-                self.pipe.to(get_torch_device())
 
             (
                 prompt_embeds,

@@ -61,21 +61,27 @@ class Predictor(BasePredictor):
 
     
     def predict(self, 
-                image: Path = Input(description="Image", default=None), 
-                width: int = Input(description="Width", default=720), 
-                height: int = Input(description="height", default=1280), 
-                overlap_width: int = Input(description="overlap width", default=72), 
-                num_inference_steps: int = Input(description="Steps", default=8),
-                resize_option: str = Input(description="height", default="Full"), 
-                custom_resize_size: str = Input(description="Custom Resize Size (Optional)", default=""), 
-                prompt_input: str = Input(
-                    description="Write here your prompt (Optional)",
-                    default=""
-                ),
-                alignment: str = Input(
-                    description="Alignment",
-                    default="Middle"
-                )
+            image: Path = Input(description="Image", default=None), 
+            width: int = Input(description="Width", default=720), 
+            height: int = Input(description="height", default=1280), 
+            overlap_width: int = Input(description="overlap width", default=72), 
+            num_inference_steps: int = Input(description="Steps", default=8),
+            enable_hyper: bool = Input(description="Enable / Disable Hyper Flux Lora – If enabled set the steps to 8", default=False, choices=[True, False]),
+            resize_option: str = Input(
+                description="Zoom out (Optional) - Full: no zoom", 
+                default="Full",
+                choices=["Full", "1/2", "1/3", "1/4"]
+            ),
+            custom_resize_size: str = Input(description="height", default="Full"), 
+            prompt_input: str = Input(
+                description="Write here your prompt (Optional)",
+                default=""
+            ),
+            alignment: str = Input(
+                description="Alignment",
+                default="Middle",
+                choices=["Top", "Middle", "Left", "Right", "Bottom"]
+            )
         ) -> str:
         init_image = load_image( image )
         init_image.convert("RGB")
@@ -171,6 +177,13 @@ class Predictor(BasePredictor):
 
         try: 
             final_prompt = f"{prompt_input} , high quality, 4k, 8k, high resolution, detailed"
+
+            if enable_hyper: 
+                self.pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-FLUX.1-dev-8steps-lora.safetensors"))
+                self.pipe.fuse_lora(lora_scale=0.125)
+                self.pipe.transformer.to(torch.bfloat16)
+                self.pipe.controlnet.to(torch.bfloat16)
+                self.pipe.to(get_torch_device())
 
             (
                 prompt_embeds,

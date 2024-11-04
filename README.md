@@ -1,3 +1,5 @@
-# Outpainting
+# Flux Outpainting
 Base Model: RealVisXL 5.0 Lightining
-Upscaler: Flux upscaler -- WIP
+
+## Credits 
+- https://huggingface.co/spaces/multimodalart/flux-outpainting @multimodalart

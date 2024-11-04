@@ -13,12 +13,12 @@ build:
 
   python_packages: 
     - "torch==2.3.1"
-    - "numpy==1.26.4"
+    - "diffusers"
     - "transformers"
+    - "safetensors"
     - "accelerate"
-    - "git+https://github.com/huggingface/diffusers.git"
-    - "opencv-python"
-    - "tqdm"
+    - "sentencepiece"
+    - "peft"
+    - "optimum-quanto"
     
 predict: "predict.py:Predictor"
-#image: "alexgenovese/flux-outpainting"

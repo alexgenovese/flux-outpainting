@@ -1,8 +1,8 @@
 torch
-numpy==1.26.4
+diffusers
 transformers
+safetensors
 accelerate
-#diffusers
-git+https://github.com/huggingface/diffusers.git
-opencv-python
-tqdm
+sentencepiece
+peft
+optimum-quanto
