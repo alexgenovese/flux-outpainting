@@ -42,7 +42,7 @@ class Predictor(BasePredictor):
             height: int = Input(description="height", default=1280), 
             overlap_width: int = Input(description="overlap width", default=72), 
             num_inference_steps: int = Input(description="Steps", default=8),
-            enable_hyper: bool = Input(description="Enable / Disable Hyper Flux Lora – If enabled set the steps to 8", default=False, choices=[True, False]),
+            enable_hyper: bool = Input(description="Enable / Disable Hyper Flux Lora – If enabled set the steps to 8", default=False),
             resize_option: str = Input(
                 description="Zoom out (Optional) - Full: no zoom", 
                 default="Full",
