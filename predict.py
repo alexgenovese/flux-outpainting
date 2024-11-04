@@ -154,7 +154,7 @@ class Predictor(BasePredictor):
         try: 
             final_prompt = f"{prompt_input} , high quality, 4k, 8k, high resolution, detailed"
 
-            if hyper_enabled:
+            if enable_hyper:
                 self.pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-FLUX.1-dev-8steps-lora.safetensors"))
                 self.pipe.fuse_lora(lora_scale=0.125)
                 self.pipe.transformer.to(torch.bfloat16)
