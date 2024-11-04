@@ -1,6 +1,7 @@
 import torch, os, sys
 import numpy as np
 from cog import BasePredictor, Input, Path
+from huggingface_hub import hf_hub_download
 from diffusers.utils import load_image
 from controlnet_flux import FluxControlNetModel
 from transformer_flux import FluxTransformer2DModel
@@ -13,22 +14,24 @@ from src.utils import get_torch_device
 from src.download_weights import download_weights
 from src.constants import hf_token, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, base_path
 
+# _torch = torch.bfloat16
+_torch = torch.float16
 
 class Predictor(BasePredictor):
     def setup(self):
         # Download or cache
         download_weights()
 
-        self.controlnet = FluxControlNetModel.from_pretrained(CONTROLNET_MODEL, torch_dtype=torch.bfloat16, cache_dir=CONTROLNET_MODEL_CACHE)
+        self.controlnet = FluxControlNetModel.from_pretrained(CONTROLNET_MODEL, torch_dtype=_torch, cache_dir=CONTROLNET_MODEL_CACHE)
         self.transformer = FluxTransformer2DModel.from_pretrained(
-            BASE_MODEL, subfolder='transformer', torch_dtype=torch.bfloat16, cache_dir=BASE_MODEL_CACHE
+            BASE_MODEL, subfolder='transformer', torch_dtype=_torch, cache_dir=BASE_MODEL_CACHE
         )
 
         self.pipe = FluxControlNetInpaintingPipeline.from_pretrained(
             BASE_MODEL,
             transformer=self.transformer,
             controlnet=self.controlnet,
-            torch_dtype=torch.bfloat16,
+            torch_dtype=_torch,
             cache_dir=BASE_MODEL_CACHE
         )
 

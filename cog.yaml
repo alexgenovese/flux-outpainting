@@ -20,5 +20,6 @@ build:
     - "sentencepiece"
     - "peft"
     - "optimum-quanto"
+    - "protobuf"
     
 predict: "predict.py:Predictor"

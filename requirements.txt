@@ -6,3 +6,4 @@ accelerate
 sentencepiece
 peft
 optimum-quanto
+protobuf

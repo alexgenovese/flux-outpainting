@@ -1,5 +1,5 @@
 import os, torch, time, shutil
-from huggingface_hub import login, hf_hub_download, login
+from huggingface_hub import login, hf_hub_download
 from controlnet_flux import FluxControlNetModel
 from transformer_flux import FluxTransformer2DModel
 from pipeline_flux_controlnet_inpaint import FluxControlNetInpaintingPipeline
@@ -65,10 +65,10 @@ def cache_upscaler():
             )
             vae.save_pretrained(UPSCALER_CACHE, safe_serialization=True)
         except Exception as error:
-            print("VAE - Something went wrong while downloading")
+            print("UPSCALER - Something went wrong while downloading")
             print(f"{error}")
             shutil.rmtree(UPSCALER_CACHE)
-            print("VAE - Removed empty cache directory")
+            print("UPSCALER - Removed empty cache directory")
 
 
 def download_weights(): 
