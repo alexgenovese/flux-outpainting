@@ -14,8 +14,8 @@ from src.utils import get_torch_device
 from src.download_weights import download_weights
 from src.constants import hf_token, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, base_path
 
-# _torch = torch.bfloat16
-_torch = torch.float16
+_torch = torch.bfloat16
+# _torch = torch.float16
 
 class Predictor(BasePredictor):
     def setup(self):
