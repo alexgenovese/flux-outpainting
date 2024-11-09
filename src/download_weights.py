@@ -15,6 +15,7 @@ _torch = torch.float16
 def login_hf():
     if logged_in is False:
         login( token = hf_token )
+        logged_in = True
     
     return True
 
