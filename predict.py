@@ -58,7 +58,7 @@ class Predictor(BasePredictor):
                 choices=["Top", "Middle", "Left", "Right", "Bottom"]
             )
         ) -> Path:
-        init_image = load_image( image )
+        init_image = Image.open(image)
         init_image.convert("RGB")
 
         source = init_image
