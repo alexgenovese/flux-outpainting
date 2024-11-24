@@ -9,4 +9,4 @@ CONTROL_LOCAL = ""
 UPSCALER_CACHE = os.path.join( base_path, 'weights-cache/upscaler_model')
 UPSCALER_MODEL = ""
 
-hf_token = "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"
+hf_token = "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"

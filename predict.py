@@ -3,13 +3,12 @@ import numpy as np
 from cog import BasePredictor, Input, Path
 from huggingface_hub import hf_hub_download
 from diffusers.utils import load_image
-from controlnet_flux import FluxControlNetModel
-from transformer_flux import FluxTransformer2DModel
-from pipeline_flux_controlnet_inpaint import FluxControlNetInpaintingPipeline
-
 from PIL import Image, ImageDraw
 
 sys.path.append("./src")
+from src.controlnet_flux import FluxControlNetModel
+from src.transformer_flux import FluxTransformer2DModel
+from src.pipeline_flux_controlnet_inpaint import FluxControlNetInpaintingPipeline
 from src.utils import get_torch_device
 from src.download_weights import download_weights
 from src.constants import hf_token, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, base_path
