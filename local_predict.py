@@ -13,26 +13,18 @@ from src.utils import get_torch_device
 from src.download_weights import download_weights
 from src.constants import hf_token, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, base_path
 
-# _torch = torch.bfloat16
-_torch = torch.float16
+_torch = torch.bfloat16
+# _torch = torch.float16
 
 class Predictor(BasePredictor):
     def setup(self):
-        # Download or cache
-        download_weights()
+        print("Setup - Download or get weights from cache")
+        # Download or get the weights from cache
+        controlnet, pipe = download_weights()
 
-        self.controlnet = FluxControlNetModel.from_pretrained(CONTROLNET_MODEL, torch_dtype=_torch, cache_dir=CONTROLNET_MODEL_CACHE)
-        self.transformer = FluxTransformer2DModel.from_pretrained(
-            BASE_MODEL, subfolder='transformer', torch_dtype=_torch, cache_dir=BASE_MODEL_CACHE
-        )
-
-        self.pipe = FluxControlNetInpaintingPipeline.from_pretrained(
-            BASE_MODEL,
-            transformer=self.transformer,
-            controlnet=self.controlnet,
-            torch_dtype=_torch,
-            cache_dir=BASE_MODEL_CACHE
-        )
+        self.controlnet = controlnet
+        self.pipe = pipe
+        print("Setup - Completed")
 
     
     def predict(self, 
@@ -44,145 +36,72 @@ class Predictor(BasePredictor):
             resize_option="Full", 
             custom_resize_size="", 
             prompt_input="",
-            alignment="Middle",
-            hyper_enabled=True,
-            upscaler=True,
-            upscale_factor=1.5,     # 1 to 4
-            controlnet_conditioning_scale=0.6 # 0.1 to 1.5
+            alignment="Middle"
         ) -> Path:
-        # init_image = Image.open(image)
-        # init_image.convert("RGB")
-
-        init_image = load_image( image )
+        print("Predict - Start inference")
+        init_image = Image.open(image)
         init_image.convert("RGB")
 
-        source = init_image
-        target_size = (width, height)
-        overlap = overlap_width
+        custom_resize_percentage = custom_resize_size
+        overlap_left=8
+        overlap_right=8
+        overlap_bottom=8
+        overlap_top=8
 
-        # Upscale if source is smaller than target in both dimensions
-        if source.width < target_size[0] and source.height < target_size[1]:
-            scale_factor = min(target_size[0] / source.width, target_size[1] / source.height)
-            new_width = int(source.width * scale_factor)
-            new_height = int(source.height * scale_factor)
-            source = source.resize((new_width, new_height), Image.LANCZOS)
+        print("Predict - Prepare image and mask")
+        background, mask = self.prepare_image_and_mask(image, width, height, overlap_width, resize_option, custom_resize_percentage, alignment, overlap_left, overlap_right, overlap_top, overlap_bottom)
 
-        if source.width > target_size[0] or source.height > target_size[1]:
-            scale_factor = min(target_size[0] / source.width, target_size[1] / source.height)
-            new_width = int(source.width * scale_factor)
-            new_height = int(source.height * scale_factor)
-            source = source.resize((new_width, new_height), Image.LANCZOS)
-        
-        if resize_option == "Full":
-            resize_size = max(source.width, source.height)
-        elif resize_option == "1/2":
-            resize_size = max(source.width, source.height) // 2
-        elif resize_option == "1/3":
-            resize_size = max(source.width, source.height) // 3
-        elif resize_option == "1/4":
-            resize_size = max(source.width, source.height) // 4
-        else:  # Custom
-            resize_size = custom_resize_size
-
-        aspect_ratio = source.height / source.width
-        new_width = resize_size
-        new_height = int(resize_size * aspect_ratio)
-        source = source.resize((new_width, new_height), Image.LANCZOS)
-
-        if not self.can_expand(source.width, source.height, target_size[0], target_size[1], alignment):
+        print("Predict - Can Expand")
+        if not self.can_expand(background.width, background.height, width, height, alignment):
             alignment = "Middle"
-
-        # Calculate margins based on alignment
-        if alignment == "Middle":
-            margin_x = (target_size[0] - source.width) // 2
-            margin_y = (target_size[1] - source.height) // 2
-        elif alignment == "Left":
-            margin_x = 0
-            margin_y = (target_size[1] - source.height) // 2
-        elif alignment == "Right":
-            margin_x = target_size[0] - source.width
-            margin_y = (target_size[1] - source.height) // 2
-        elif alignment == "Top":
-            margin_x = (target_size[0] - source.width) // 2
-            margin_y = 0
-        elif alignment == "Bottom":
-            margin_x = (target_size[0] - source.width) // 2
-            margin_y = target_size[1] - source.height
-
-        background = Image.new('RGB', target_size, (255, 255, 255))
-        background.paste(source, (margin_x, margin_y))
-
-        mask = Image.new('L', target_size, 255)
-        mask_draw = ImageDraw.Draw(mask)
-
-        # Adjust mask generation based on alignment
-        if alignment == "Middle":
-            mask_draw.rectangle([
-                (margin_x + overlap, margin_y + overlap),
-                (margin_x + source.width - overlap, margin_y + source.height - overlap)
-            ], fill=0)
-        elif alignment == "Left":
-            mask_draw.rectangle([
-                (margin_x, margin_y),
-                (margin_x + source.width - overlap, margin_y + source.height)
-            ], fill=0)
-        elif alignment == "Right":
-            mask_draw.rectangle([
-                (margin_x + overlap, margin_y),
-                (margin_x + source.width, margin_y + source.height)
-            ], fill=0)
-        elif alignment == "Top":
-            mask_draw.rectangle([
-                (margin_x, margin_y),
-                (margin_x + source.width, margin_y + source.height - overlap)
-            ], fill=0)
-        elif alignment == "Bottom":
-            mask_draw.rectangle([
-                (margin_x, margin_y + overlap),
-                (margin_x + source.width, margin_y + source.height)
-            ], fill=0)
 
         cnet_image = background.copy()
         cnet_image.paste(0, (0, 0), mask)
 
+        final_prompt = f"{prompt_input} , high quality, 4k, 8k, high resolution, detailed skin, details"
+
+        #generator = torch.Generator(device="cuda").manual_seed(42)
+
         try: 
-            final_prompt = f"{prompt_input} , high quality, 4k, 8k, high resolution, detailed"
+            print("Predict - Adding Hyper")
+            self.pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-FLUX.1-dev-8steps-lora.safetensors"))
+            self.pipe.fuse_lora(lora_scale=0.125)
+            self.pipe.transformer.to(torch.bfloat16)
+            self.pipe.controlnet.to(torch.bfloat16)
+            self.pipe.to(get_torch_device())
 
-            if hyper_enabled:
-                self.pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-FLUX.1-dev-8steps-lora.safetensors"))
-                self.pipe.fuse_lora(lora_scale=0.125)
-                self.pipe.transformer.to(torch.bfloat16)
-                self.pipe.controlnet.to(torch.bfloat16)
-                self.pipe.to(get_torch_device())
+            print("Predict - Run Inference pipe")
+            result = self.pipe(
+                prompt=final_prompt,
+                height=height,
+                width=width,
+                control_image=cnet_image,
+                control_mask=mask,
+                num_inference_steps=num_inference_steps,
+                #generator=generator,
+                controlnet_conditioning_scale=0.9,
+                guidance_scale=3.5,
+                negative_prompt="",
+                true_guidance_scale=3.5,
+            ).images[0]
 
-            (
-                prompt_embeds,
-                negative_prompt_embeds,
-                pooled_prompt_embeds,
-                negative_pooled_prompt_embeds,
-            ) = self.pipe.encode_prompt(final_prompt, get_torch_device(), True)
+            print("Predict - Manipulating image and mask")
+            result = result.convert("RGBA")
+            cnet_image.paste(result, (0, 0), mask)
 
-            for image in self.pipe(
-                prompt_embeds=prompt_embeds,
-                negative_prompt_embeds=negative_prompt_embeds,
-                pooled_prompt_embeds=pooled_prompt_embeds,
-                negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
-                image=cnet_image,
-                num_inference_steps=num_inference_steps
-            ):
-                # yield cnet_image, image
-                pass
+            # yield background, cnet_image
+            print("Predict - Save locally")
+            cnet_image.save('/tmp/flux-outpainted-image.png')
+            # return cnet_image, background
 
-            image = image.convert("RGBA")
-            cnet_image.paste(image, (0, 0), mask)
+            print("Predict - Print the path")
+            return Path('/tmp/flux-outpainted-image.png')
+
         except Exception as error:
             print("----- Something went wrong")
             print(f"{error}")
-
-        # yield background, cnet_image
-        cnet_image.save('./image.png')
-        # background.save('./background.png')
-        return Path('./image.png')
+            return False
+        
 
 
     def can_expand(self, source_width, source_height, target_width, target_height, alignment):
@@ -193,6 +112,103 @@ class Predictor(BasePredictor):
             return False
         return True
 
+
+    def prepare_image_and_mask(self, image, width, height, overlap_percentage, resize_option, custom_resize_percentage, alignment, overlap_left, overlap_right, overlap_top, overlap_bottom):
+        target_size = (width, height)
+
+        # Calculate the scaling factor to fit the image within the target size
+        scale_factor = min(target_size[0] / image.width, target_size[1] / image.height)
+        new_width = int(image.width * scale_factor)
+        new_height = int(image.height * scale_factor)
+        
+        # Resize the source image to fit within target size
+        source = image.resize((new_width, new_height), Image.LANCZOS)
+
+        # Apply resize option using percentages
+        if resize_option == "Full":
+            resize_percentage = 100
+        elif resize_option == "50%":
+            resize_percentage = 50
+        elif resize_option == "33%":
+            resize_percentage = 33
+        elif resize_option == "25%":
+            resize_percentage = 25
+        else:  # Custom
+            resize_percentage = custom_resize_percentage
+
+        # Calculate new dimensions based on percentage
+        resize_factor = resize_percentage / 100
+        new_width = int(source.width * resize_factor)
+        new_height = int(source.height * resize_factor)
+
+        # Ensure minimum size of 64 pixels
+        new_width = max(new_width, 64)
+        new_height = max(new_height, 64)
+
+        # Resize the image
+        source = source.resize((new_width, new_height), Image.LANCZOS)
+
+        # Calculate the overlap in pixels based on the percentage
+        overlap_x = int(new_width * (overlap_percentage / 100))
+        overlap_y = int(new_height * (overlap_percentage / 100))
+
+        # Ensure minimum overlap of 1 pixel
+        overlap_x = max(overlap_x, 1)
+        overlap_y = max(overlap_y, 1)
+
+        # Calculate margins based on alignment
+        if alignment == "Middle":
+            margin_x = (target_size[0] - new_width) // 2
+            margin_y = (target_size[1] - new_height) // 2
+        elif alignment == "Left":
+            margin_x = 0
+            margin_y = (target_size[1] - new_height) // 2
+        elif alignment == "Right":
+            margin_x = target_size[0] - new_width
+            margin_y = (target_size[1] - new_height) // 2
+        elif alignment == "Top":
+            margin_x = (target_size[0] - new_width) // 2
+            margin_y = 0
+        elif alignment == "Bottom":
+            margin_x = (target_size[0] - new_width) // 2
+            margin_y = target_size[1] - new_height
+
+        # Adjust margins to eliminate gaps
+        margin_x = max(0, min(margin_x, target_size[0] - new_width))
+        margin_y = max(0, min(margin_y, target_size[1] - new_height))
+
+        # Create a new background image and paste the resized source image
+        background = Image.new('RGB', target_size, (255, 255, 255))
+        background.paste(source, (margin_x, margin_y))
+
+        # Create the mask
+        mask = Image.new('L', target_size, 255)
+        mask_draw = ImageDraw.Draw(mask)
+
+        # Calculate overlap areas
+        white_gaps_patch = 2
+
+        left_overlap = margin_x + overlap_x if overlap_left else margin_x + white_gaps_patch
+        right_overlap = margin_x + new_width - overlap_x if overlap_right else margin_x + new_width - white_gaps_patch
+        top_overlap = margin_y + overlap_y if overlap_top else margin_y + white_gaps_patch
+        bottom_overlap = margin_y + new_height - overlap_y if overlap_bottom else margin_y + new_height - white_gaps_patch
+        
+        if alignment == "Left":
+            left_overlap = margin_x + overlap_x if overlap_left else margin_x
+        elif alignment == "Right":
+            right_overlap = margin_x + new_width - overlap_x if overlap_right else margin_x + new_width
+        elif alignment == "Top":
+            top_overlap = margin_y + overlap_y if overlap_top else margin_y
+        elif alignment == "Bottom":
+            bottom_overlap = margin_y + new_height - overlap_y if overlap_bottom else margin_y + new_height
+
+        # Draw the mask
+        mask_draw.rectangle([
+            (left_overlap, top_overlap),
+            (right_overlap, bottom_overlap)
+        ], fill=0)
+
+        return background, mask
 
 if __name__ == "__main__":
     pred = Predictor()
