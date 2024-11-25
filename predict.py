@@ -51,7 +51,7 @@ class Predictor(BasePredictor):
         ) -> Path:
         print("Predict - Start inference")
         init_image = Image.open(image)
-        init_image.convert("RGB")
+        # init_image.convert("RGB")
 
         custom_resize_percentage = custom_resize_size
         overlap_left=8
@@ -60,7 +60,7 @@ class Predictor(BasePredictor):
         overlap_top=8
 
         print("Predict - Prepare image and mask")
-        background, mask = self.prepare_image_and_mask(image, width, height, overlap_width, resize_option, custom_resize_percentage, alignment, overlap_left, overlap_right, overlap_top, overlap_bottom)
+        background, mask = self.prepare_image_and_mask(init_image, width, height, overlap_width, resize_option, custom_resize_percentage, alignment, overlap_left, overlap_right, overlap_top, overlap_bottom)
 
         print("Predict - Can Expand")
         if not self.can_expand(background.width, background.height, width, height, alignment):

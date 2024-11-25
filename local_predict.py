@@ -13,8 +13,8 @@ from src.utils import get_torch_device
 from src.download_weights import download_weights
 from src.constants import hf_token, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, base_path
 
-_torch = torch.bfloat16
-# _torch = torch.float16
+# _torch = torch.bfloat16
+_torch = torch.float16
 
 class Predictor(BasePredictor):
     def setup(self):
@@ -31,7 +31,7 @@ class Predictor(BasePredictor):
             image = "https://fffiloni-diffusers-image-outpaint.hf.space/file=/tmp/gradio/e6846698832579693cacb09bc4ac8c8e0d3e7ec4ef6dda430fee13b05146c512/example_3.jpg",
             width=720, 
             height=1280, 
-            overlap_width=72, 
+            overlap_width=8, 
             num_inference_steps=8,
             resize_option="Full", 
             custom_resize_size="", 
@@ -39,8 +39,10 @@ class Predictor(BasePredictor):
             alignment="Middle"
         ) -> Path:
         print("Predict - Start inference")
-        init_image = Image.open(image)
-        init_image.convert("RGB")
+    
+        init_image = load_image(image)
+        # init_image = Image.open(init_image)
+        # init_image.convert("RGB")
 
         custom_resize_percentage = custom_resize_size
         overlap_left=8
@@ -49,7 +51,7 @@ class Predictor(BasePredictor):
         overlap_top=8
 
         print("Predict - Prepare image and mask")
-        background, mask = self.prepare_image_and_mask(image, width, height, overlap_width, resize_option, custom_resize_percentage, alignment, overlap_left, overlap_right, overlap_top, overlap_bottom)
+        background, mask = self.prepare_image_and_mask(init_image, width, height, overlap_width, resize_option, custom_resize_percentage, alignment, overlap_left, overlap_right, overlap_top, overlap_bottom)
 
         print("Predict - Can Expand")
         if not self.can_expand(background.width, background.height, width, height, alignment):
