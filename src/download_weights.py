@@ -18,40 +18,61 @@ def login_hf():
 
 # loaded into base model
 def cache_model():
-    if not os.path.exists(CONTROLNET_MODEL_CACHE):
+    
         try: 
-            os.makedirs(CONTROLNET_MODEL_CACHE)
-            start = time.time()
+            if not os.path.exists(CONTROLNET_MODEL_CACHE):
+                os.makedirs(CONTROLNET_MODEL_CACHE)
+                start = time.time()
 
-            controlnet = FluxControlNetModel.from_pretrained(CONTROLNET_MODEL, torch_dtype=_torch, cache_dir=CONTROLNET_MODEL_CACHE)
-            controlnet.save_pretrained(CONTROLNET_MODEL_CACHE)
+                controlnet = FluxControlNetModel.from_pretrained(CONTROLNET_MODEL, torch_dtype=_torch, cache_dir=CONTROLNET_MODEL_CACHE)
+                controlnet.save_pretrained(CONTROLNET_MODEL_CACHE)
 
-            transformer = FluxTransformer2DModel.from_pretrained(
-                BASE_MODEL, subfolder='transformer', torch_dtype=_torch, cache_dir=BASE_MODEL_CACHE
-            )
-            transformer.save_pretrained(BASE_MODEL_CACHE)
+                transformer = FluxTransformer2DModel.from_pretrained(
+                    BASE_MODEL, subfolder='transformer', torch_dtype=_torch, cache_dir=BASE_MODEL_CACHE
+                )
+                transformer.save_pretrained(BASE_MODEL_CACHE)
 
-            pipe = FluxControlNetInpaintingPipeline.from_pretrained(
-                BASE_MODEL,
-                transformer=transformer,
-                controlnet=controlnet,
-                torch_dtype=_torch,
-                cache_dir=BASE_MODEL_CACHE
-            )
-            pipe.save_pretrained(BASE_MODEL_CACHE)
+                pipe = FluxControlNetInpaintingPipeline.from_pretrained(
+                    BASE_MODEL,
+                    transformer=transformer,
+                    controlnet=controlnet,
+                    torch_dtype=_torch,
+                    cache_dir=BASE_MODEL_CACHE
+                )
+                pipe.save_pretrained(BASE_MODEL_CACHE)
 
-            print("Downloading took: ", time.time() - start)
+                print("Downloading took: ", time.time() - start)
 
-            return pipe
+                return True
+
+            else: 
+                # This case is because is being called from predict function 
+                controlnet = FluxControlNetModel.from_pretrained(CONTROLNET_MODEL, torch_dtype=_torch, cache_dir=CONTROLNET_MODEL_CACHE)
+                transformer = FluxTransformer2DModel.from_pretrained(
+                    BASE_MODEL, subfolder='transformer', torch_dtype=_torch, cache_dir=BASE_MODEL_CACHE
+                )
+                pipe = FluxControlNetInpaintingPipeline.from_pretrained(
+                    BASE_MODEL,
+                    transformer=transformer,
+                    controlnet=controlnet,
+                    torch_dtype=_torch,
+                    cache_dir=BASE_MODEL_CACHE
+                )
+                return controlnet, pipe
+
 
         except Exception as error:
             print("CONTROLNET_MODEL - Something went wrong while downloading")
             print(f"{error}")
             shutil.rmtree(CONTROLNET_MODEL_CACHE)
             print("CONTROLNET_MODEL - Removed empty cache directory")
+        
+            return False
 
 
-
+#
+#   Not currently in USE
+#
 def cache_upscaler():
     if not os.path.exists(UPSCALER_CACHE): 
         try:

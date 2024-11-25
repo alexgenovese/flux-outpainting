@@ -18,21 +18,13 @@ _torch = torch.bfloat16
 
 class Predictor(BasePredictor):
     def setup(self):
-        # Download or cache
-        download_weights()
+        print("Setup - Download or get weights from cache")
+        # Download or get the weights from cache
+        controlnet, pipe = download_weights()
 
-        self.controlnet = FluxControlNetModel.from_pretrained(CONTROLNET_MODEL, torch_dtype=_torch, cache_dir=CONTROLNET_MODEL_CACHE)
-        self.transformer = FluxTransformer2DModel.from_pretrained(
-            BASE_MODEL, subfolder='transformer', torch_dtype=_torch, cache_dir=BASE_MODEL_CACHE
-        )
-
-        self.pipe = FluxControlNetInpaintingPipeline.from_pretrained(
-            BASE_MODEL,
-            transformer=self.transformer,
-            controlnet=self.controlnet,
-            torch_dtype=_torch,
-            cache_dir=BASE_MODEL_CACHE
-        )
+        self.controlnet = controlnet
+        self.pipe = pipe
+        print("Setup - Completed")
 
     
     def predict(self, 
@@ -58,17 +50,20 @@ class Predictor(BasePredictor):
                 choices=["Top", "Middle", "Left", "Right", "Bottom"]
             )
         ) -> Path:
+        print("Predict - Start inference")
         init_image = Image.open(image)
         init_image.convert("RGB")
-    
+
         custom_resize_percentage = 50
         overlap_left=8
         overlap_right=8
         overlap_bottom=8
         overlap_top=8
 
+        print("Predict - Prepare image and mask")
         background, mask = self.prepare_image_and_mask(image, width, height, overlap_width, resize_option, custom_resize_percentage, alignment, overlap_left, overlap_right, overlap_top, overlap_bottom)
-    
+
+        print("Predict - Can Expand")
         if not self.can_expand(background.width, background.height, width, height, alignment):
             alignment = "Middle"
 
@@ -80,13 +75,14 @@ class Predictor(BasePredictor):
         #generator = torch.Generator(device="cuda").manual_seed(42)
 
         try: 
-        
+            print("Predict - Adding Hyper")
             self.pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-FLUX.1-dev-8steps-lora.safetensors"))
             self.pipe.fuse_lora(lora_scale=0.125)
             self.pipe.transformer.to(torch.bfloat16)
             self.pipe.controlnet.to(torch.bfloat16)
             self.pipe.to(get_torch_device())
 
+            print("Predict - Run Inference pipe")
             result = self.pipe(
                 prompt=final_prompt,
                 height=height,
@@ -100,14 +96,17 @@ class Predictor(BasePredictor):
                 negative_prompt="",
                 true_guidance_scale=3.5,
             ).images[0]
-        
+
+            print("Predict - Manipulating image and mask")
             result = result.convert("RGBA")
             cnet_image.paste(result, (0, 0), mask)
 
             # yield background, cnet_image
+            print("Predict - Save locally")
             cnet_image.save('/tmp/flux-outpainted-image.png')
             # return cnet_image, background
 
+            print("Predict - Print the path")
             return Path('/tmp/flux-outpainted-image.png')
 
         except Exception as error:
