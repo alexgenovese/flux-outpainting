@@ -43,7 +43,7 @@ def cache_model():
 
                 print("Downloading took: ", time.time() - start)
 
-                return True
+                return controlnet, pipe
 
             else: 
                 # This case is because is being called from predict function 
@@ -91,14 +91,15 @@ def cache_upscaler():
 
 def download_weights(): 
     print("-----> Start caching models...")
-    with tqdm(total=100, desc="Creating cache") as pbar:
+    with tqdm(total=100, desc="Pushing weights in cache folder") as pbar:
         login_hf()
         pbar.update(25)
 
-        cache_model()
+        controlnet, pipe = cache_model()
         pbar.update(75)
 
     print("-----> Caching completed!")
+    return controlnet, pipe
 
 
 if __name__ == "__main__":

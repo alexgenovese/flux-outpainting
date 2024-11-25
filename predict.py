@@ -33,13 +33,12 @@ class Predictor(BasePredictor):
             height: int = Input(description="height", default=1280), 
             overlap_width: int = Input(description="overlap width", default=72), 
             num_inference_steps: int = Input(description="Steps", default=8),
-            enable_hyper: bool = Input(description="Enable / Disable Hyper Flux Lora – If enabled set the steps to 8", default=False),
             resize_option: str = Input(
                 description="Zoom out (Optional) - Full: no zoom", 
                 default="Full",
                 choices=["Full", "50%", "33%", "25%"]
             ),
-            custom_resize_size: str = Input(description="height", default="Full"), 
+            custom_resize_size: str = Input(description="Percentage of resize", default="50"), 
             prompt_input: str = Input(
                 description="Write here your prompt (Optional)",
                 default=""
@@ -54,7 +53,7 @@ class Predictor(BasePredictor):
         init_image = Image.open(image)
         init_image.convert("RGB")
 
-        custom_resize_percentage = 50
+        custom_resize_percentage = custom_resize_size
         overlap_left=8
         overlap_right=8
         overlap_bottom=8
