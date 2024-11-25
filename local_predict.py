@@ -50,6 +50,9 @@ class Predictor(BasePredictor):
             upscale_factor=1.5,     # 1 to 4
             controlnet_conditioning_scale=0.6 # 0.1 to 1.5
         ) -> Path:
+        # init_image = Image.open(image)
+        # init_image.convert("RGB")
+
         init_image = load_image( image )
         init_image.convert("RGB")
 
