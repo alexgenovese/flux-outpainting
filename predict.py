@@ -2,6 +2,7 @@ import torch, sys
 from cog import BasePredictor, Input, Path
 from huggingface_hub import hf_hub_download
 from PIL import Image, ImageDraw
+from diffusers import DDIMScheduler
 
 sys.path.append("./src")
 from src.utils import get_torch_device
@@ -72,6 +73,7 @@ class Predictor(BasePredictor):
         try: 
             print("Predict - Adding Hyper")
             self.pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-FLUX.1-dev-8steps-lora.safetensors"))
+            self.pipe.scheduler = DDIMScheduler.from_config(self.pipe.scheduler.config, timestep_spacing="trailing")
             self.pipe.fuse_lora(lora_scale=0.125)
             self.pipe.transformer.to(torch.bfloat16)
             self.pipe.controlnet.to(torch.bfloat16)
