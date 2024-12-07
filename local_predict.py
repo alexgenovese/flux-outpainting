@@ -1,27 +1,22 @@
-import torch, os, sys
-import numpy as np
+import torch, sys
+from diffusers.utils import load_image
 from cog import BasePredictor, Input, Path
 from huggingface_hub import hf_hub_download
-from diffusers.utils import load_image
 from PIL import Image, ImageDraw
+from diffusers import DDIMScheduler
 
 sys.path.append("./src")
-from src.controlnet_flux import FluxControlNetModel
-from src.transformer_flux import FluxTransformer2DModel
-from src.pipeline_flux_controlnet_inpaint import FluxControlNetInpaintingPipeline
 from src.utils import get_torch_device
 from src.download_weights import download_weights
 from src.constants import hf_token, BASE_MODEL, BASE_MODEL_CACHE, CONTROLNET_MODEL, CONTROLNET_MODEL_CACHE, base_path
 
-# _torch = torch.bfloat16
-_torch = torch.float16
-
 class Predictor(BasePredictor):
     def setup(self):
         print("Setup - Download or get weights from cache")
-        # Download or get the weights from cache
+        # Download or get the Pipelines
         controlnet, pipe = download_weights()
-
+        
+        # add the pipelines to the class
         self.controlnet = controlnet
         self.pipe = pipe
         print("Setup - Completed")
@@ -31,20 +26,23 @@ class Predictor(BasePredictor):
             image = "https://fffiloni-diffusers-image-outpaint.hf.space/file=/tmp/gradio/e6846698832579693cacb09bc4ac8c8e0d3e7ec4ef6dda430fee13b05146c512/example_3.jpg",
             width=720, 
             height=1280, 
-            overlap_width=8, 
+            overlap_width=72, 
             num_inference_steps=8,
             resize_option="Full", 
             custom_resize_size="", 
             prompt_input="",
             alignment="Middle"
         ) -> Path:
-        print("Predict - Start inference")
-    
-        init_image = load_image(image)
-        # init_image = Image.open(init_image)
-        # init_image.convert("RGB")
 
+        print("Predict - Start inference")
+        
+        # Read the remote image
+        init_image = load_image(image)
+
+        # Setup params 
         custom_resize_percentage = custom_resize_size
+
+        # Default settings
         overlap_left=8
         overlap_right=8
         overlap_bottom=8
@@ -62,11 +60,10 @@ class Predictor(BasePredictor):
 
         final_prompt = f"{prompt_input} , high quality, 4k, 8k, high resolution, detailed skin, details"
 
-        #generator = torch.Generator(device="cuda").manual_seed(42)
-
         try: 
             print("Predict - Adding Hyper")
             self.pipe.load_lora_weights(hf_hub_download("ByteDance/Hyper-SD", "Hyper-FLUX.1-dev-8steps-lora.safetensors"))
+            self.pipe.scheduler = DDIMScheduler.from_config(self.pipe.scheduler.config, timestep_spacing="trailing")
             self.pipe.fuse_lora(lora_scale=0.125)
             self.pipe.transformer.to(torch.bfloat16)
             self.pipe.controlnet.to(torch.bfloat16)
@@ -80,7 +77,6 @@ class Predictor(BasePredictor):
                 control_image=cnet_image,
                 control_mask=mask,
                 num_inference_steps=num_inference_steps,
-                #generator=generator,
                 controlnet_conditioning_scale=0.9,
                 guidance_scale=3.5,
                 negative_prompt="",
